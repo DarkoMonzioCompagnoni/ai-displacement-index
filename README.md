@@ -1,6 +1,6 @@
 # AI Displacement Index
 
-**A public data pipeline tracking tech layoffs, developer sentiment on AI, and market reaction — built with Snowflake, dbt, Azure, and Dagster.**
+**A public data pipeline tracking tech layoffs, developer sentiment on AI, and market reaction — built with Snowflake, dbt, Cloudflare R2, and Dagster.**
 
 ---
 
@@ -31,7 +31,7 @@ I also wanted to be transparent about how I used AI in building it. You'll find 
 | Layer | Tool |
 |---|---|
 | Cloud Warehouse | Snowflake (free student account) |
-| Cloud Storage | Azure Blob Storage (raw landing zone) |
+| Cloud Storage | Cloudflare R2 (raw landing zone) |
 | Transformation | dbt Core + Snowflake adapter |
 | Orchestration | Dagster |
 | Visualization | Sigma (public dashboard) |
@@ -58,12 +58,12 @@ I also wanted to be transparent about how I used AI in building it. You'll find 
 For a detailed breakdown of the pipeline design, schema structure, and dbt model layers, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ```
-[Sources]                [Storage]          [Warehouse]     [Transform]    [Serve]
+[Sources]                [Storage]            [Warehouse]     [Transform]    [Serve]
 
 BLS API      ───┐
-Yahoo Finance───┤──► Azure Blob  ──────► Snowflake ──────► dbt ─────────► Sigma
-Layoffs CSV  ───┤    (raw zone)           (staging +        (marts)         Dashboard
-WARN CSV     ───┘                          warehouse)
+Yahoo Finance───┤──► Cloudflare R2 ────────► Snowflake ──────► dbt ─────────► Sigma
+Layoffs CSV  ───┤    (raw zone,               (staging +        (marts)         Dashboard
+WARN CSV     ───┘     S3-compatible)           warehouse)
 SO Survey CSV
 ```
 
@@ -76,7 +76,7 @@ Dagster orchestrates the scheduled pulls (BLS + Yahoo Finance run on a weekly ca
 | Step | Status |
 |---|---|
 | Local environment setup | ✅ Complete |
-| Azure Blob Storage | 🔄 In progress |
+| Cloudflare R2 storage | 🔄 In progress |
 | Snowflake setup | ⏳ Pending |
 | Ingestion scripts | ⏳ Pending |
 | dbt models | ⏳ Pending |
