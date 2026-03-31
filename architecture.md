@@ -52,16 +52,52 @@ Each ingestion script writes a date-stamped file. Every run is preserved — rer
 
 ## Snowflake Structure
 
-```sql
-DATABASE: AI_DISPLACEMENT
-  SCHEMA: RAW        -- direct copies of source files
-  SCHEMA: STAGING    -- typed, renamed, lightly cleaned
-  SCHEMA: MARTS      -- aggregated, analytics-ready
+### RBAC Design
+
+Four roles following least-privilege access:
+
+```
+ACCOUNTADMIN          ← used only for initial setup
+│
+├── SYSADMIN          ← owns all objects
+│
+├── LOADER            ← ingestion scripts write raw data only
+├── TRANSFORMER       ← dbt reads raw, writes staging + intermediate + marts
+└── REPORTER          ← Sigma reads marts only
 ```
 
-**Warehouse:** `COMPUTE_WH` (X-Small, auto-suspend after 60 seconds to stay within free tier limits)
+Each role has a dedicated service user and warehouse:
 
-The full setup script is in `snowflake/setup.sql`.
+| Role | User | Warehouse |
+|---|---|---|
+| LOADER | LOADER_USER | LOADER_WH |
+| TRANSFORMER | DBT_USER | TRANSFORMER_WH |
+| REPORTER | REPORTER_USER | REPORTER_WH |
+
+All warehouses are X-Small with 60-second auto-suspend to stay within free tier limits.
+
+### Privilege Matrix
+
+| Schema | LOADER | TRANSFORMER | REPORTER |
+|---|---|---|---|
+| RAW | INSERT, UPDATE | SELECT | — |
+| STAGING | — | ALL | — |
+| INTERMEDIATE | — | ALL | — |
+| MARTS | — | ALL | SELECT |
+
+FUTURE grants are applied on all schemas so permissions extend automatically to newly created tables without manual re-granting.
+
+### Database and Schemas
+
+```sql
+DATABASE: AI_DISPLACEMENT
+  SCHEMA: RAW           -- direct copies of source files
+  SCHEMA: STAGING       -- typed, renamed, lightly cleaned
+  SCHEMA: INTERMEDIATE  -- cross-source joins and enrichment
+  SCHEMA: MARTS         -- aggregated, dashboard-ready
+```
+
+The full setup script — roles, users, warehouses, schemas, and privileges — is in `snowflake/setup.sql`. Run it as `ACCOUNTADMIN` after creating a new account.
 
 ---
 
@@ -151,29 +187,37 @@ This is **descriptive, not causal.** Confounders include earnings cycles, macro 
 All secrets are stored in `.env` (never committed). See `.env.example` for required keys:
 
 ```
-SNOWFLAKE_ACCOUNT=
-SNOWFLAKE_USER=
-SNOWFLAKE_PASSWORD=
-SNOWFLAKE_DATABASE=AI_DISPLACEMENT
-SNOWFLAKE_WAREHOUSE=COMPUTE_WH
-SNOWFLAKE_SCHEMA=RAW
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 R2_BUCKET_NAME=ai-displacement-raw
+
+SNOWFLAKE_ACCOUNT=
+SNOWFLAKE_USER=DBT_USER
+SNOWFLAKE_PASSWORD=
+SNOWFLAKE_DATABASE=AI_DISPLACEMENT
+SNOWFLAKE_WAREHOUSE=TRANSFORMER_WH
+SNOWFLAKE_SCHEMA=STAGING
+SNOWFLAKE_ROLE=TRANSFORMER
+
+SNOWFLAKE_LOADER_USER=LOADER_USER
+SNOWFLAKE_LOADER_PASSWORD=
+SNOWFLAKE_LOADER_WAREHOUSE=LOADER_WH
+SNOWFLAKE_LOADER_ROLE=LOADER
+
 BLS_API_KEY=
 ```
 
 ---
 
-## Snowflake 120-Day Reset
+## Snowflake Free Trial Reset
 
-The free student account expires every 120 days. To rebuild:
+The free trial lasts 30 days. To rebuild after expiry:
 
 1. Create a new Snowflake account
 2. Update `.env` with new credentials
-3. Run `snowflake/setup.sql` to recreate warehouse and schemas
-4. Re-run all ingestion scripts to reload raw data
-5. Run `dbt build` to repopulate staging and marts
+3. Run `snowflake/setup.sql` as `ACCOUNTADMIN`
+4. Re-run all ingestion scripts to reload raw data into Snowflake
+5. Run `dbt build` to repopulate staging, intermediate, and marts
 
-No data is lost — everything is preserved in Cloudflare R2 and the public source files.
+No source data is lost — everything is preserved in Cloudflare R2 and the public source files.

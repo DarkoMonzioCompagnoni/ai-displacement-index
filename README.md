@@ -30,7 +30,7 @@ I also wanted to be transparent about how I used AI in building it. You'll find 
 
 | Layer | Tool |
 |---|---|
-| Cloud Warehouse | Snowflake (free student account) |
+| Cloud Warehouse | Snowflake (free trial) |
 | Cloud Storage | Cloudflare R2 (raw landing zone) |
 | Transformation | dbt Core + Snowflake adapter |
 | Orchestration | Dagster |
@@ -76,9 +76,9 @@ Dagster orchestrates the scheduled pulls (BLS + Yahoo Finance run on a weekly ca
 | Step | Status |
 |---|---|
 | Local environment setup | ✅ Complete |
-| Cloudflare R2 storage | 🔄 In progress |
-| Snowflake setup | ⏳ Pending |
-| Ingestion scripts | ⏳ Pending |
+| Cloudflare R2 storage | ✅ Complete |
+| Snowflake setup | ✅ Complete |
+| Ingestion scripts | 🔄 In progress |
 | dbt models | ⏳ Pending |
 | Dagster orchestration | ⏳ Pending |
 | Sigma dashboard | ⏳ Pending |
@@ -89,28 +89,30 @@ Dagster orchestrates the scheduled pulls (BLS + Yahoo Finance run on a weekly ca
 
 ```
 ai-displacement-index/
-├── README.md               # This file
-├── ARCHITECTURE.md         # Technical deep-dive
-├── ai-usage.md             # Transparent log of AI assistance
-├── requirements.txt        # Pinned Python dependencies
-├── .env.example            # Required environment variables (no secrets)
+├── README.md                            # This file
+├── ARCHITECTURE.md                      # Technical deep-dive
+├── ai-usage.md                          # Transparent log of AI assistance
+├── requirements.txt                     # Pinned Python dependencies
+├── .env.example                         # Required environment variables (no secrets)
 ├── .gitignore
 ├── ingestion/
-│   └── scripts/            # One Python script per data source
+│   └── scripts/
+│       ├── test_r2_connection.py        # Validates Cloudflare R2 connectivity
+│       └── test_snowflake_connection.py # Validates Snowflake connectivity
 ├── dagster/
-│   └── jobs/               # Dagster job definitions
-├── dbt/                    # Populated by dbt init
+│   └── jobs/                            # Dagster job definitions
+├── dbt/                                 # Populated by dbt init
 ├── snowflake/
-│   └── setup.sql           # Warehouse, database, schema setup
-├── sigma/                  # Dashboard export / embed link
-└── docker-compose.yml      # Local orchestration
+│   └── setup.sql                        # Full RBAC + warehouse + schema setup
+├── sigma/                               # Dashboard export / embed link
+└── docker-compose.yml                   # Local orchestration
 ```
 
 ---
 
-## Snowflake Free Tier Note
+## Snowflake Free Trial Note
 
-This project runs on Snowflake's free student account, which resets every 120 days. The `snowflake/setup.sql` script re-creates the warehouse and schema from scratch. Credentials are managed via `.env` — see `.env.example` for the required variables.
+This project runs on Snowflake's free trial (30 days, $400 credits). The `snowflake/setup.sql` script re-creates all roles, warehouses, and schemas from scratch. Credentials are managed via `.env` — see `.env.example` for the required variables.
 
 ---
 
