@@ -44,14 +44,15 @@ I also wanted to be transparent about how I used AI in building it. You'll find 
 
 | Source | What it provides | Refresh |
 |---|---|---|
-| [Layoffs.fyi via Kaggle](https://www.kaggle.com/datasets/ulrikeherold/tech-layoffs-2020-2024) | Tech layoff events 2020–2025 | Manual / monthly |
-| WARN Act (ICPSR / Federal Reserve) | Formal US layoff notices by state | Monthly |
-| Stack Overflow Developer Survey 2024 | Developer AI sentiment and usage | Annual |
-| BLS OEWS API | Employment counts by occupation 2015–2024 | Annual |
+| [Layoffs.fyi via Kaggle](https://www.kaggle.com/datasets/ulrikeherold/tech-layoffs-2020-2024) | Tech layoff events 2020–2025, 2,412 records | Manual / monthly |
+| Stack Overflow Developer Survey 2024 | Developer AI sentiment, 65,437 respondents | Annual |
 | Yahoo Finance (`yfinance`) | Daily stock prices for 69 publicly traded tech companies | Daily |
+| Felten, Raj & Seamans (2021) AIOE | AI exposure scores for 774 occupations by SOC code | Static |
 | AI investment announcements | Curated seed table (MSFT, Google, Meta, Amazon) | Manual |
 
-**A note on BLS classification:** The Bureau of Labor Statistics has no standalone SOC codes for "Data Analyst" or "Data Engineer" as of the 2018 SOC revision. Both roles fall under `15-2051 Data Scientists` in BLS data. This is a known limitation surfaced explicitly in the dashboard — the government agency tracking AI's labor market impact doesn't yet classify two of the roles most discussed in that context.
+**A note on BLS data:** Programmatic access to BLS OEWS data was blocked at all endpoints — API, direct download, and flat file server. The script is preserved in `ingestion/scripts/ingest_bls.py` with full documentation of the failure. Employment denominator data can be manually downloaded from [bls.gov/oes/tables.htm](https://www.bls.gov/oes/tables.htm) when needed.
+
+**A note on BLS classification:** The BLS 2018 SOC system has no standalone codes for "Data Analyst" or "Data Engineer" — both fall under `15-2051 Data Scientists`. This limitation is surfaced explicitly in the dashboard.
 
 ---
 
@@ -62,14 +63,13 @@ For a detailed breakdown of the pipeline design, schema structure, and dbt model
 ```
 [Sources]                [Storage]            [Warehouse]     [Transform]    [Serve]
 
-BLS API      ───┐
-Yahoo Finance───┤──► Cloudflare R2 ────────► Snowflake ──────► dbt ─────────► Sigma
-Layoffs CSV  ───┤    (raw zone,               (staging +        (marts)         Dashboard
-WARN CSV     ───┘     S3-compatible)           warehouse)
-SO Survey CSV
+Yahoo Finance───┐
+Layoffs CSV  ───┤──► Cloudflare R2 ────────► Snowflake ──────► dbt ─────────► Sigma
+SO Survey    ───┤    (raw zone,               (staging +        (marts)         Dashboard
+AIOE CSV     ───┘     S3-compatible)           warehouse)
 ```
 
-Dagster orchestrates the scheduled pulls (BLS + Yahoo Finance run on a weekly cadence). Annual sources are loaded manually. A `docker-compose.yml` runs the full stack locally.
+Dagster orchestrates the scheduled pulls (Yahoo Finance runs on a weekly cadence). Annual and static sources are loaded manually.
 
 ---
 
@@ -80,8 +80,8 @@ Dagster orchestrates the scheduled pulls (BLS + Yahoo Finance run on a weekly ca
 | Local environment setup | ✅ Complete |
 | Cloudflare R2 storage | ✅ Complete |
 | Snowflake setup | ✅ Complete |
-| Ingestion scripts | 🔄 In progress |
-| dbt models | ⏳ Pending |
+| Ingestion scripts | ✅ Complete |
+| dbt models | 🔄 In progress |
 | Dagster orchestration | ⏳ Pending |
 | Sigma dashboard | ⏳ Pending |
 
@@ -93,7 +93,7 @@ Dagster orchestrates the scheduled pulls (BLS + Yahoo Finance run on a weekly ca
 ai-displacement-index/
 ├── README.md
 ├── ARCHITECTURE.md
-├── NOTES.md                             # Analytical observations for the dashboard
+├── NOTES.md                              # Analytical observations for the dashboard
 ├── ai-usage.md
 ├── requirements.txt
 ├── .env.example
@@ -101,16 +101,17 @@ ai-displacement-index/
 ├── ingestion/
 │   └── scripts/
 │       ├── data/
-│       │   └── company_tickers.csv      # Seed file: 69 publicly traded tech companies
-│       ├── ingest_layoffs_fyi.py
-│       ├── ingest_so_survey.py
-│       ├── ingest_stock_prices.py
-│       ├── ingest_bls.py
+│       │   └── company_tickers.csv       # 69 publicly traded tech companies
+│       ├── ingest_layoffs_fyi.py         # Layoffs.fyi → R2
+│       ├── ingest_so_survey.py           # Stack Overflow survey → R2
+│       ├── ingest_stock_prices.py        # Yahoo Finance → R2
+│       ├── ingest_ai_exposure.py         # AIOE scores → R2
+│       ├── ingest_bls.py                 # DOCUMENTED FAILURE — BLS blocked
 │       ├── test_r2_connection.py
 │       └── test_snowflake_connection.py
 ├── dagster/
 │   └── jobs/
-├── dbt/
+├── dbt/                                  # Populated by dbt init
 ├── snowflake/
 │   └── setup.sql
 ├── sigma/
@@ -121,13 +122,13 @@ ai-displacement-index/
 
 ## Snowflake Free Trial Note
 
-This project runs on Snowflake's free trial (30 days, $400 credits). The `snowflake/setup.sql` script re-creates all roles, warehouses, and schemas from scratch. Credentials are managed via `.env` — see `.env.example` for the required variables.
+The `snowflake/setup.sql` script re-creates all roles, warehouses, and schemas from scratch. Credentials are managed via `.env` — see `.env.example` for required variables.
 
 ---
 
 ## AI Usage
 
-This project was built with AI as an accelerator. Claude was used for scaffolding, debugging, and drafting. Every prompt, decision, and correction is logged in [`ai-usage.md`](./ai-usage.md) — including the cases where the AI was wrong and I had to fix it.
+This project was built with AI as an accelerator. Every prompt, decision, and correction is logged in [`ai-usage.md`](./ai-usage.md) — including the cases where the AI was wrong and I had to fix it.
 
 ---
 
