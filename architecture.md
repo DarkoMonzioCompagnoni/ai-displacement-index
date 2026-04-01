@@ -36,7 +36,7 @@ ai-displacement-raw/
 ├── stackoverflow_survey/
 │   └── survey_YYYY.csv
 ├── bls_projections/
-│   └── bls_YYYYMMDD.json
+│   └── bls_YYYYMMDD.csv
 └── stock_prices/
     └── prices_YYYYMMDD.csv
 ```
@@ -46,7 +46,7 @@ Each ingestion script writes a date-stamped file. Every run is preserved — rer
 **Why R2 over Azure Blob or AWS S3:**
 - Genuinely free tier: 10GB storage, 1M Class A operations/month, 10M Class B operations/month
 - No egress fees (unlike S3)
-- S3-compatible API means the ingestion code is portable — switching to S3 later requires changing only credentials and endpoint
+- S3-compatible API means the ingestion code is portable
 
 ---
 
@@ -85,7 +85,7 @@ All warehouses are X-Small with 60-second auto-suspend to stay within free tier 
 | INTERMEDIATE | — | ALL | — |
 | MARTS | — | ALL | SELECT |
 
-FUTURE grants are applied on all schemas so permissions extend automatically to newly created tables without manual re-granting.
+FUTURE grants are applied on all schemas so permissions extend automatically to newly created tables.
 
 ### Database and Schemas
 
@@ -97,7 +97,37 @@ DATABASE: AI_DISPLACEMENT
   SCHEMA: MARTS         -- aggregated, dashboard-ready
 ```
 
-The full setup script — roles, users, warehouses, schemas, and privileges — is in `snowflake/setup.sql`. Run it as `ACCOUNTADMIN` after creating a new account.
+---
+
+## Data Sources
+
+### Layoffs.fyi (via Kaggle)
+- **Dataset:** ulrikeherold/tech-layoffs-2020-2024
+- **Rows:** 2,412 | **Columns:** 18
+- **Key fields:** Company, Industry, Country, Laid_Off, Date_layoffs, Percentage, Stage
+- **Dropped in staging:** latitude, longitude (not needed for analysis)
+
+### Stack Overflow Developer Survey 2024
+- **Rows:** 65,437 | **Columns:** 114
+- **Key AI fields:** AISelect, AISent, AIBen, AIAcc, AIComplex, AIThreat, AIEthics
+- **Segmentation fields:** DevType, YearsCodePro, OrgSize, Country
+
+### Yahoo Finance Stock Prices
+- **Tickers:** 69 publicly traded tech companies (see `ingestion/scripts/data/company_tickers.csv`)
+- **Date range:** 2020-01-01 to present
+- **Fields:** date, ticker, open, close, volume
+- **Rows:** ~103,000
+
+### BLS OEWS (Occupational Employment and Wage Statistics)
+- **Series:** 22 occupations covering software, data, security, management, and AI-adjacent roles
+- **Date range:** 2015–2024 (annual averages)
+- **Key limitation:** See note below
+
+#### BLS Classification Gap
+
+The BLS 2018 SOC system has no standalone codes for "Data Analyst" or "Data Engineer". Both roles are classified under `15-2051 Data Scientists`. This is not a data quality issue — it is a classification system that predates the industry's role specialisation.
+
+This gap is surfaced explicitly in the dashboard. The government agency responsible for tracking AI's labor market impact does not yet have a category for two of the roles most discussed in that context. This is a genuine analytical observation worth highlighting to the project's target audience of data professionals and hiring managers.
 
 ---
 
@@ -121,33 +151,42 @@ stg_stock_prices.sql
 
 ### Intermediate (`models/intermediate/`)
 
-Cross-source enrichment. This is where company names get standardised across sources, stock tickers get joined to layoff events, and BLS occupation codes get mapped to survey roles.
-
 ```
 int_companies_enriched.sql        -- layoffs joined to stock tickers
-int_ai_exposure_by_occupation.sql -- BLS projections + O*NET AI scores
+int_ai_exposure_by_occupation.sql -- BLS employment trends + AI exposure proxy
 int_survey_trends.sql             -- SO survey pivoted by year and role
 ```
 
 ### Marts (`models/marts/`)
 
-One mart per dashboard tab. Aggregated to the grain the visualisation needs.
+| Mart | Dashboard Tab | What it answers |
+|---|---|---|
+| `mart_layoff_trends.sql` | Tab 1 | Layoffs by industry, quarter, company size |
+| `mart_developer_sentiment.sql` | Tab 2 | AI trust/usage trends by year and experience level |
+| `mart_ai_halo_effect.sql` | Tab 3 | Layoff announcement → 30-day stock return window |
+| `mart_occupation_risk.sql` | Tab 4 | BLS employment change vs. AI exposure score by occupation |
 
-```
-mart_layoff_trends.sql       -- layoffs by industry, quarter, company size
-mart_developer_sentiment.sql -- AI trust/usage trends by year and experience
-mart_ai_halo_effect.sql      -- layoff announcement → stock price (30-day window)
-mart_occupation_risk.sql     -- AI exposure score vs. projected employment change
-```
+#### How BLS data feeds mart_occupation_risk
+
+The mart answers: which occupations are shrinking, and does AI exposure correlate with that decline?
+
+- BLS provides annual employment counts per occupation (2015–2024)
+- Year-over-year change rates are computed in the intermediate layer
+- AI exposure scores are joined from an O*NET-derived proxy or SO survey data
+- The resulting grain: `occupation | year | employment | yoy_change_pct | ai_exposure_score`
+- Visualised as a scatter in Sigma: x = AI exposure, y = employment change
+
+#### How BLS data feeds mart_layoff_trends
+
+BLS employment totals serve as a denominator. A company cutting 1,000 software developers is contextualised against 1.7 million nationally — expressing layoffs as a share of total occupation employment makes scale meaningful.
 
 ---
 
 ## dbt Tests
 
 Every staging model has:
-- `not_null` tests on primary keys
-- `unique` tests on primary keys
-- `accepted_values` on categorical columns (e.g. layoff type)
+- `not_null` and `unique` tests on primary keys
+- `accepted_values` on categorical columns
 - Source freshness checks on date columns
 
 Intermediate and mart models have relationship tests between joined keys.
@@ -156,68 +195,39 @@ Intermediate and mart models have relationship tests between joined keys.
 
 ## Dagster Orchestration
 
-Two job types:
+**Scheduled jobs:**
+- `bls_ingestion_job` — weekly
+- `stock_price_job` — weekly
 
-**Scheduled jobs** (run automatically):
-- `bls_ingestion_job` — weekly, pulls latest BLS employment projections
-- `stock_price_job` — weekly, pulls Yahoo Finance prices for tracked tickers
-
-**Manual jobs** (triggered on demand):
-- `layoffs_fyi_job` — run when a new CSV is downloaded
-- `warn_notices_job` — run after monthly WARN data is published
-- `stackoverflow_job` — run once per year when new survey drops
-
-Each job: pulls data → writes to Cloudflare R2 → triggers Snowflake `COPY INTO` → runs dbt models downstream.
+**Manual jobs:**
+- `layoffs_fyi_job` — on new CSV download
+- `warn_notices_job` — monthly after WARN data publishes
+- `stackoverflow_job` — annual
 
 ---
 
 ## The AI Halo Analysis
 
-The `mart_ai_halo_effect` model computes a 30-day stock return window around two event types per company:
+The `mart_ai_halo_effect` model computes a 30-day stock return window around two event types per company: a major AI investment announcement and a layoff event above a threshold.
 
-1. A major AI investment announcement (from the curated seed table)
-2. A layoff event above a threshold (from Layoffs.fyi / WARN data)
-
-This is **descriptive, not causal.** Confounders include earnings cycles, macro conditions, and sector rotation. The dashboard frames this explicitly. The goal is to surface the pattern and let the viewer interrogate it — not to make a causal claim.
+This is **descriptive, not causal.** Confounders include earnings cycles, macro conditions, and sector rotation. The dashboard frames this explicitly.
 
 ---
 
 ## Environment Variables
 
-All secrets are stored in `.env` (never committed). See `.env.example` for required keys:
-
-```
-R2_ACCOUNT_ID=
-R2_ACCESS_KEY_ID=
-R2_SECRET_ACCESS_KEY=
-R2_BUCKET_NAME=ai-displacement-raw
-
-SNOWFLAKE_ACCOUNT=
-SNOWFLAKE_USER=DBT_USER
-SNOWFLAKE_PASSWORD=
-SNOWFLAKE_DATABASE=AI_DISPLACEMENT
-SNOWFLAKE_WAREHOUSE=TRANSFORMER_WH
-SNOWFLAKE_SCHEMA=STAGING
-SNOWFLAKE_ROLE=TRANSFORMER
-
-SNOWFLAKE_LOADER_USER=LOADER_USER
-SNOWFLAKE_LOADER_PASSWORD=
-SNOWFLAKE_LOADER_WAREHOUSE=LOADER_WH
-SNOWFLAKE_LOADER_ROLE=LOADER
-
-BLS_API_KEY=
-```
+See `.env.example` for all required keys.
 
 ---
 
 ## Snowflake Free Trial Reset
 
-The free trial lasts 30 days. To rebuild after expiry:
+The free trial lasts 30 days. To rebuild:
 
 1. Create a new Snowflake account
 2. Update `.env` with new credentials
 3. Run `snowflake/setup.sql` as `ACCOUNTADMIN`
-4. Re-run all ingestion scripts to reload raw data into Snowflake
-5. Run `dbt build` to repopulate staging, intermediate, and marts
+4. Re-run all ingestion scripts
+5. Run `dbt build`
 
-No source data is lost — everything is preserved in Cloudflare R2 and the public source files.
+No source data is lost — everything is preserved in Cloudflare R2.

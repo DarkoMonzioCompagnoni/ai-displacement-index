@@ -12,7 +12,7 @@ This project builds an end-to-end analytics pipeline to examine three connected 
 
 - **Labor:** Which industries and roles shed workers fastest since 2022, and how does that map to AI adoption timelines?
 - **Sentiment:** Are developers trusting AI more or less over time? Does that split by experience level?
-- **Finance:** Do companies that announce major AI initiatives see stock gains even while laying off workers — the "AI halo" effect?
+- **Finance:** Do companies that announce major AI investments see stock gains even while laying off workers — the "AI halo" effect?
 
 The goal is not to prove a thesis. It is to put clean, structured data in front of those questions and let the numbers speak.
 
@@ -44,12 +44,14 @@ I also wanted to be transparent about how I used AI in building it. You'll find 
 
 | Source | What it provides | Refresh |
 |---|---|---|
-| [Layoffs.fyi](https://layoffs.fyi) | Tech layoff events since 2022 | Manual / monthly |
+| [Layoffs.fyi via Kaggle](https://www.kaggle.com/datasets/ulrikeherold/tech-layoffs-2020-2024) | Tech layoff events 2020–2025 | Manual / monthly |
 | WARN Act (ICPSR / Federal Reserve) | Formal US layoff notices by state | Monthly |
-| Stack Overflow Developer Survey 2022–2025 | Developer AI sentiment over time | Annual |
-| BLS Employment Projections API | Occupation-level AI exposure scores | Annual |
-| Yahoo Finance (`yfinance`) | Stock prices for major tech firms | Daily |
+| Stack Overflow Developer Survey 2024 | Developer AI sentiment and usage | Annual |
+| BLS OEWS API | Employment counts by occupation 2015–2024 | Annual |
+| Yahoo Finance (`yfinance`) | Daily stock prices for 69 publicly traded tech companies | Daily |
 | AI investment announcements | Curated seed table (MSFT, Google, Meta, Amazon) | Manual |
+
+**A note on BLS classification:** The Bureau of Labor Statistics has no standalone SOC codes for "Data Analyst" or "Data Engineer" as of the 2018 SOC revision. Both roles fall under `15-2051 Data Scientists` in BLS data. This is a known limitation surfaced explicitly in the dashboard — the government agency tracking AI's labor market impact doesn't yet classify two of the roles most discussed in that context.
 
 ---
 
@@ -89,23 +91,30 @@ Dagster orchestrates the scheduled pulls (BLS + Yahoo Finance run on a weekly ca
 
 ```
 ai-displacement-index/
-├── README.md                            # This file
-├── ARCHITECTURE.md                      # Technical deep-dive
-├── ai-usage.md                          # Transparent log of AI assistance
-├── requirements.txt                     # Pinned Python dependencies
-├── .env.example                         # Required environment variables (no secrets)
+├── README.md
+├── ARCHITECTURE.md
+├── NOTES.md                             # Analytical observations for the dashboard
+├── ai-usage.md
+├── requirements.txt
+├── .env.example
 ├── .gitignore
 ├── ingestion/
 │   └── scripts/
-│       ├── test_r2_connection.py        # Validates Cloudflare R2 connectivity
-│       └── test_snowflake_connection.py # Validates Snowflake connectivity
+│       ├── data/
+│       │   └── company_tickers.csv      # Seed file: 69 publicly traded tech companies
+│       ├── ingest_layoffs_fyi.py
+│       ├── ingest_so_survey.py
+│       ├── ingest_stock_prices.py
+│       ├── ingest_bls.py
+│       ├── test_r2_connection.py
+│       └── test_snowflake_connection.py
 ├── dagster/
-│   └── jobs/                            # Dagster job definitions
-├── dbt/                                 # Populated by dbt init
+│   └── jobs/
+├── dbt/
 ├── snowflake/
-│   └── setup.sql                        # Full RBAC + warehouse + schema setup
-├── sigma/                               # Dashboard export / embed link
-└── docker-compose.yml                   # Local orchestration
+│   └── setup.sql
+├── sigma/
+└── docker-compose.yml
 ```
 
 ---
