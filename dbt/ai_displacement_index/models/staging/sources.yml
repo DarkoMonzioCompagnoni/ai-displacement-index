@@ -1,0 +1,90 @@
+version: 2
+
+sources:
+  - name: raw
+    database: AI_DISPLACEMENT
+    schema: RAW
+    description: "Raw data loaded from Cloudflare R2 via ingestion scripts"
+
+    tables:
+      - name: layoffs_fyi
+        description: "Tech layoff events 2020–2025. Source: Kaggle (ulrikeherold/tech-layoffs-2020-2024)"
+        columns:
+          - name: nr
+            description: "Row number"
+          - name: company
+            description: "Company name"
+          - name: location_hq
+            description: "HQ city"
+          - name: country
+            description: "Country"
+          - name: industry
+            description: "Industry category"
+          - name: laid_off
+            description: "Number of employees laid off"
+          - name: date_layoffs
+            description: "Date of layoff event"
+          - name: percentage
+            description: "Percentage of workforce laid off"
+          - name: company_size_before_layoffs
+            description: "Headcount before layoff"
+          - name: stage
+            description: "Funding stage (Series A, public, etc.)"
+          - name: money_raised_in__mil
+            description: "Total funding raised in millions USD"
+          - name: year
+            description: "Year of layoff event"
+
+      - name: stackoverflow_survey
+        description: "Stack Overflow Developer Survey 2024. 65,437 respondents, 114 columns."
+        columns:
+          - name: responseid
+            description: "Unique respondent ID"
+          - name: devtype
+            description: "Developer role(s), semicolon-separated"
+          - name: yearscodepo
+            description: "Years of professional coding experience"
+          - name: country
+            description: "Country of respondent"
+          - name: aiselect
+            description: "Whether respondent uses AI tools"
+          - name: aisent
+            description: "Sentiment toward AI tools"
+          - name: aiben
+            description: "Perceived benefits of AI tools"
+          - name: aiacc
+            description: "Trust in accuracy of AI tools"
+          - name: aicomplex
+            description: "How well AI handles complex tasks"
+          - name: aithreat
+            description: "Whether respondent sees AI as a job threat"
+          - name: aiethics
+            description: "Ethical concerns about AI"
+
+      - name: stock_prices
+        description: "Daily stock prices for 69 publicly traded tech companies. Source: Yahoo Finance via yfinance. Date range: 2020-01-01 to present."
+        columns:
+          - name: date
+            description: "Trading date"
+          - name: ticker
+            description: "Stock ticker symbol"
+          - name: open
+            description: "Opening price"
+          - name: close
+            description: "Closing price"
+          - name: volume
+            description: "Trading volume"
+
+      - name: ai_exposure
+        description: "AI Occupational Exposure (AIOE) scores for 774 occupations. Source: Felten, Raj & Seamans (2021), Strategic Management Journal."
+        columns:
+          - name: soc_code
+            description: "6-digit SOC occupation code"
+          - name: occupation_title
+            description: "Occupation name"
+          - name: aioe_score
+            description: "AI exposure score. Higher = more exposed. Range: -2.67 to +1.53."
+          - name: source
+            description: "Citation"
+          - name: year_published
+            description: "Year dataset was published"

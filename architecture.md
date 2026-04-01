@@ -15,13 +15,13 @@ pull from APIs   (S3-compatible     raw schema          enriched models    dashb
 and flat files    landing zone)     (1:1 with source)
 ```
 
-Nothing is transformed before it hits Snowflake. Raw files are stored as-is in R2, giving a replayable source of truth that doesn't depend on the upstream API remaining available.
+Nothing is transformed before it hits Snowflake. Raw files are stored as-is in R2, giving a replayable source of truth.
 
 ---
 
 ## Cloudflare R2 Storage
 
-R2 is S3-compatible. The Python SDK (`boto3`) works against it with only credential and endpoint changes from AWS S3.
+R2 is S3-compatible — `boto3` works against it with a different endpoint URL but identical API calls to AWS S3.
 
 **Bucket:** `ai-displacement-raw`
 
@@ -37,57 +37,65 @@ ai-displacement-raw/
 │   └── prices_YYYYMMDD.csv
 ├── ai_exposure/
 │   └── aioe_scores_YYYYMMDD.csv
-└── test/
-    └── connection_check.txt
+└── warn_notices/                        # Pending
 ```
 
-Each ingestion script writes a date-stamped file. Every run is preserved — reruns don't overwrite history.
+Each ingestion script writes a date-stamped file, preserving full history.
+
+**Why R2:** Free tier (10GB, 1M ops/month), no egress fees, S3-compatible API.
 
 ---
 
-## Data Sources
+## Ingestion Scripts
 
-### Layoffs.fyi (via Kaggle)
-- **Dataset:** ulrikeherold/tech-layoffs-2020-2024
-- **Rows:** 2,412 | **Columns:** 18
-- **Key fields:** Company, Industry, Country, Laid_Off, Date_layoffs, Percentage, Stage
-- **Script:** `ingestion/scripts/ingest_layoffs_fyi.py`
+| Script | Source | Method | Status |
+|---|---|---|---|
+| `ingest_layoffs_fyi.py` | Kaggle CSV | Manual download → R2 | ✅ |
+| `ingest_so_survey.py` | Kaggle CSV (Stack Overflow 2024) | Manual download → R2 | ✅ |
+| `ingest_stock_prices.py` | Yahoo Finance API | API → R2, 69 tickers | ✅ |
+| `ingest_ai_exposure.py` | Felten et al. AIOE (GitHub) | HTTP download → R2 | ✅ |
+| `ingest_bls.py` | BLS OEWS | **FAILED** — BLS blocks programmatic access | ❌ |
 
-### Stack Overflow Developer Survey 2024
-- **Rows:** 65,437 | **Columns:** 114
-- **Key AI fields:** AISelect, AISent, AIBen, AIAcc, AIComplex, AIThreat, AIEthics
-- **Segmentation:** DevType, YearsCodePro, OrgSize, Country
-- **Script:** `ingestion/scripts/ingest_so_survey.py`
+### BLS Ingestion Failure
 
-### Yahoo Finance Stock Prices
-- **Tickers:** 69 publicly traded tech companies (`ingestion/scripts/data/company_tickers.csv`)
-- **Date range:** 2020-01-01 to present
-- **Fields:** date, ticker, open, close, volume
-- **Rows:** ~103,000
-- **Script:** `ingestion/scripts/ingest_stock_prices.py`
+Three approaches attempted and blocked:
 
-### AIOE — AI Occupational Exposure Scores
-- **Source:** Felten, Raj & Seamans (2021), Strategic Management Journal
-- **GitHub:** https://github.com/AIOE-Data/AIOE
-- **Rows:** 774 occupations indexed by 6-digit SOC code
-- **Key field:** AIOE score — standardised measure of exposure to AI capabilities
-- **Score range:** -2.67 (least exposed) to +1.53 (most exposed)
-- **Script:** `ingestion/scripts/ingest_ai_exposure.py`
+1. **BLS Public Data API** — OEWS series IDs are undocumented. Two attempts with different formats both returned "Series does not exist".
+2. **BLS special requests download** (www.bls.gov) — HTTP 403 for non-browser clients.
+3. **BLS flat file server** (download.bls.gov) — HTTP 403 for non-browser clients.
 
-### BLS OEWS — DOCUMENTED FAILURE
-- **Intent:** National occupational employment counts 2015–2024
-- **Status:** All programmatic access blocked (HTTP 403) across three endpoints:
-  - BLS Public Data API
-  - `www.bls.gov/oes/special.requests/` direct download
-  - `download.bls.gov/pub/time.series/oe/` flat file server
-- **Script:** `ingestion/scripts/ingest_bls.py` — preserved as documented failure
-- **Workaround:** Manual download available at [bls.gov/oes/tables.htm](https://www.bls.gov/oes/tables.htm)
+**Replacement:** Felten et al. AIOE dataset. See `ingestion/scripts/ingest_bls.py` for full documentation.
 
 ---
 
-## BLS Classification Gap
+## Loading Raw Data into Snowflake
 
-The BLS 2018 SOC system has no standalone codes for "Data Analyst" or "Data Engineer". Both roles are classified under `15-2051 Data Scientists`. This is a classification system that predates the industry's role specialisation and is surfaced explicitly in the dashboard. See `NOTES.md` for framing guidance.
+### Intended approach — Snowflake External Stage (S3-compatible)
+
+The designed approach uses a Snowflake external stage pointing to Cloudflare R2, then `COPY INTO` to load tables in the RAW schema. The stage definition is in `snowflake/load_raw.sql`.
+
+```sql
+CREATE OR REPLACE STAGE r2_raw_stage
+    URL = 's3compat://ai-displacement-raw/'
+    ENDPOINT = '<account_id>.r2.cloudflarestorage.com'
+    CREDENTIALS = (AWS_KEY_ID = '...' AWS_SECRET_KEY = '...');
+
+COPY INTO layoffs_fyi FROM @r2_raw_stage/layoffs_fyi/ PATTERN = '.*\.csv';
+```
+
+**Why it is not currently active:** Snowflake requires endpoints to be whitelisted before S3-compatible stages can connect. Despite Cloudflare R2 being listed as a supported vendor and the docs stating `r2.cloudflarestorage.com` is "enabled by default," the free trial account returns `Endpoint cannot be used with storage type S3`. A Snowflake support ticket has been submitted to whitelist the endpoint. Once approved, `load_raw.sql` can be run in Snowsight to migrate from the Python loader to the stage-based approach.
+
+### Current approach — Python direct loader
+
+As a workaround, `snowflake/load_raw_python.py` downloads files from R2 via `boto3` and writes directly to Snowflake using `snowflake-connector-python`. No external stage required.
+
+This approach:
+- Is less elegant than COPY INTO (loads in memory, slower for large files)
+- Works without Snowflake support intervention
+- Is a valid real-world pattern for smaller datasets
+- Is documented here as a deliberate engineering decision, not a shortcut
+
+Once the stage is whitelisted, the Python loader will be retired in favour of `COPY INTO`.
 
 ---
 
@@ -96,13 +104,12 @@ The BLS 2018 SOC system has no standalone codes for "Data Analyst" or "Data Engi
 ### RBAC Design
 
 ```
-ACCOUNTADMIN          ← used only for initial setup
+ACCOUNTADMIN          ← initial setup only
 │
 ├── SYSADMIN          ← owns all objects
-│
-├── LOADER            ← ingestion scripts write raw data only
-├── TRANSFORMER       ← dbt reads raw, writes staging + intermediate + marts
-└── REPORTER          ← Sigma reads marts only
+├── LOADER            ← ingestion scripts: writes RAW only
+├── TRANSFORMER       ← dbt: reads RAW, writes STAGING + INTERMEDIATE + MARTS
+└── REPORTER          ← Sigma: reads MARTS only
 ```
 
 | Role | User | Warehouse |
@@ -111,7 +118,7 @@ ACCOUNTADMIN          ← used only for initial setup
 | TRANSFORMER | DBT_USER | TRANSFORMER_WH |
 | REPORTER | REPORTER_USER | REPORTER_WH |
 
-All warehouses are X-Small with 60-second auto-suspend.
+All warehouses: X-Small, 60-second auto-suspend.
 
 ### Privilege Matrix
 
@@ -136,11 +143,40 @@ DATABASE: AI_DISPLACEMENT
 
 ---
 
+## Data Sources
+
+### Layoffs.fyi (via Kaggle)
+- **Rows:** 2,412 | **Columns:** 18
+- **Key fields:** Company, Industry, Country, Laid_Off, Date_layoffs, Percentage, Stage
+- **Dropped in staging:** latitude, longitude
+
+### Stack Overflow Developer Survey 2024
+- **Rows:** 65,437 | **Columns:** 114
+- **Key AI fields:** AISelect, AISent, AIBen, AIAcc, AIComplex, AIThreat, AIEthics
+- **Segmentation:** DevType, YearsCodePro, OrgSize, Country
+
+### Yahoo Finance Stock Prices
+- **Tickers:** 69 publicly traded tech companies
+- **Date range:** 2020-01-01 to present
+- **Fields:** date, ticker, open, close, volume
+- **Rows:** ~103,000
+
+### Felten, Raj & Seamans AIOE Scores
+- **Occupations:** 774 indexed by 6-digit SOC code
+- **Score range:** -2.67 (Dancers) to +1.53 (Genetic Counselors)
+- **Citation:** Felten E, Raj M, Seamans R (2021), Strategic Management Journal 42(12):2195–2217
+
+#### BLS Classification Gap
+
+The BLS 2018 SOC system has no standalone codes for "Data Analyst" or "Data Engineer". Both fall under `15-2051 Data Scientists`. Surfaced explicitly in the dashboard.
+
+---
+
 ## dbt Model Layers
 
 ### Staging (`models/staging/`)
 
-One model per source. No joins. Only typing, renaming, and null handling.
+One model per source. No joins. Type casting, column renaming, null handling, source freshness tests.
 
 ```
 stg_layoffs_fyi.sql
@@ -153,7 +189,7 @@ stg_ai_exposure.sql
 
 ```
 int_companies_enriched.sql        -- layoffs joined to stock tickers
-int_ai_exposure_by_occupation.sql -- AIOE scores with occupation metadata
+int_ai_exposure_by_occupation.sql -- AIOE scores mapped to occupation groups
 int_survey_trends.sql             -- SO survey pivoted by year and role
 ```
 
@@ -166,19 +202,16 @@ int_survey_trends.sql             -- SO survey pivoted by year and role
 | `mart_ai_halo_effect.sql` | Tab 3 | Layoff announcement → 30-day stock return window |
 | `mart_occupation_risk.sql` | Tab 4 | AIOE exposure score vs. layoff prevalence by occupation |
 
-### How AIOE feeds mart_occupation_risk
-
-- AIOE provides a standardised exposure score per SOC code
-- Layoffs.fyi provides company-level layoff events with industry tags
-- The intermediate model joins them via O*NET occupation-to-industry mapping
-- The mart aggregates: `occupation | aioe_score | layoff_count | avg_pct_workforce_cut`
-- Visualised as a scatter in Sigma: x = AIOE score, y = layoff intensity
-
 ---
 
 ## dbt Tests
 
-Every staging model has `not_null` and `unique` tests on primary keys, `accepted_values` on categorical columns, and source freshness checks. Intermediate and mart models have relationship tests between joined keys.
+Every staging model:
+- `not_null` and `unique` on primary keys
+- `accepted_values` on categorical columns
+- Source freshness checks on date columns
+
+Intermediate and mart models: relationship tests between joined keys.
 
 ---
 
@@ -186,22 +219,28 @@ Every staging model has `not_null` and `unique` tests on primary keys, `accepted
 
 **Scheduled:** `stock_price_job` — weekly
 
-**Manual:** `layoffs_fyi_job`, `so_survey_job`, `ai_exposure_job` — on demand
+**Manual:** `layoffs_fyi_job`, `so_survey_job`, `ai_exposure_job`
 
 ---
 
 ## The AI Halo Analysis
 
-The `mart_ai_halo_effect` model computes a 30-day stock return window around AI investment announcements and layoff events. This is **descriptive, not causal.** See `NOTES.md` for dashboard framing.
+Descriptive, not causal. See `NOTES.md` for dashboard framing guidance.
+
+---
+
+## Environment Variables
+
+See `.env.example`.
 
 ---
 
 ## Snowflake Free Trial Reset
 
-1. Create a new Snowflake account
-2. Update `.env` with new credentials
+1. Create new Snowflake account
+2. Update `.env`
 3. Run `snowflake/setup.sql` as `ACCOUNTADMIN`
-4. Re-run all ingestion scripts
+4. Run `snowflake/load_raw_python.py` to reload raw tables
 5. Run `dbt build`
 
-No source data is lost — everything is preserved in Cloudflare R2.
+Source data preserved in Cloudflare R2.
