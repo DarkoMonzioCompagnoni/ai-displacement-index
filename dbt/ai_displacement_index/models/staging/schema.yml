@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: stg_layoffs_fyi
+    description: "Layoff events 2020–2025. Source: Kaggle (ulrikeherold/tech-layoffs-2020-2024)"
+    columns:
+      - name: row_nr
+        tests:
+          - not_null
+          - unique
+      - name: company
+        tests:
+          - not_null
+      - name: date_layoffs
+        tests:
+          - not_null
+      - name: industry
+        tests:
+          - not_null
+
+  - name: stg_stock_prices
+    description: "Daily stock prices for 69 tech companies. Source: Yahoo Finance."
+    columns:
+      - name: price_date
+        tests:
+          - not_null
+      - name: ticker
+        tests:
+          - not_null
+      - name: close_price
+        tests:
+          - not_null
+
+  - name: stg_ai_exposure
+    description: "AIOE scores for 774 occupations. Source: Felten, Raj & Seamans (2021)."
+    columns:
+      - name: soc_code
+        tests:
+          - not_null
+          - unique
+      - name: occupation_title
+        tests:
+          - not_null
+      - name: aioe_score
+        tests:
+          - not_null
+
+  - name: stg_stackoverflow_survey
+    description: "Stack Overflow Developer Survey 2024. 65,437 respondents."
+    columns:
+      - name: responseid
+        tests:
+          - not_null
+          - unique
