@@ -1,6 +1,6 @@
 # AI Displacement Index
 
-**A public data pipeline tracking tech layoffs, developer sentiment on AI, and market reaction — built with Snowflake, dbt, Cloudflare R2, and Dagster.**
+**A public data pipeline tracking tech layoffs, developer sentiment on AI, and market reaction — built with Snowflake, dbt, Cloudflare R2, Dagster, and Evidence.dev.**
 
 ---
 
@@ -34,9 +34,9 @@ I also wanted to be transparent about how I used AI in building it. You'll find 
 | Cloud Storage | Cloudflare R2 (raw landing zone) |
 | Transformation | dbt Core + Snowflake adapter |
 | Orchestration | Dagster |
-| Visualization | Sigma (public dashboard) |
+| Visualization | Evidence.dev (deployed to GitHub Pages) |
 | Containerization | Docker |
-| Language | Python 3.11 |
+| Language | Python 3.11, SQL, Markdown |
 
 ---
 
@@ -63,10 +63,12 @@ For a detailed breakdown of the pipeline design, schema structure, and dbt model
 [Sources]                [Storage]            [Warehouse]     [Transform]    [Serve]
 
 Yahoo Finance───┐
-Layoffs CSV  ───┤──► Cloudflare R2 ────────► Snowflake ──────► dbt ─────────► Sigma
-SO Survey CSV───┤    (raw zone,               (staging +        (marts)         Dashboard
+Layoffs CSV  ───┤──► Cloudflare R2 ────────► Snowflake ──────► dbt ─────────► Evidence.dev
+SO Survey CSV───┤    (raw zone,               (staging +        (marts)         (GitHub Pages)
 AIOE scores  ───┘     S3-compatible)           warehouse)
 ```
+
+Dagster orchestrates the scheduled pulls (Yahoo Finance weekly). Annual and static sources are loaded manually.
 
 ---
 
@@ -84,10 +86,10 @@ RAW schema (Snowflake)
             ├── int_ai_exposure_by_occupation
             └── int_survey_trends
                 └── Marts (tables)
-                    ├── mart_layoff_trends          → Tab 1: Layoff Tracker
-                    ├── mart_developer_sentiment    → Tab 2: Developer Pulse
-                    ├── mart_ai_halo_effect         → Tab 3: AI Halo Effect
-                    └── mart_occupation_risk        → Tab 4: Occupation Risk
+                    ├── mart_layoff_trends          → Page 1: Layoff Tracker
+                    ├── mart_developer_sentiment    → Page 2: Developer Pulse
+                    ├── mart_ai_halo_effect         → Page 3: AI Halo Effect
+                    └── mart_occupation_risk        → Page 4: Occupation Risk
 ```
 
 ---
@@ -101,8 +103,9 @@ RAW schema (Snowflake)
 | Snowflake setup | ✅ Complete |
 | Ingestion scripts | ✅ Complete |
 | dbt models | ✅ Complete |
-| Dagster orchestration | 🔄 In progress |
-| Sigma dashboard | ⏳ Pending |
+| Dagster orchestration | ✅ Complete |
+| Evidence.dev dashboard | 🔄 In progress |
+| Docker + repo polish | ⏳ Pending |
 
 ---
 
@@ -117,6 +120,8 @@ ai-displacement-index/
 ├── requirements.txt
 ├── .env.example
 ├── .gitignore
+├── workspace.yaml                    ← Dagster entry point
+├── evidence/                         ← Evidence.dev dashboard
 ├── ingestion/
 │   └── scripts/
 │       ├── data/
@@ -125,27 +130,39 @@ ai-displacement-index/
 │       ├── ingest_so_survey.py
 │       ├── ingest_stock_prices.py
 │       ├── ingest_ai_exposure.py
-│       ├── ingest_bls.py               # documented failure
+│       ├── ingest_bls.py             ← documented failure
 │       ├── test_r2_connection.py
 │       └── test_snowflake_connection.py
 ├── dagster/
 │   └── jobs/
+│       ├── assets.py
+│       ├── schedules.py
+│       └── definitions.py
 ├── dbt/
 │   └── ai_displacement_index/
-│       ├── models/
-│       │   ├── staging/
-│       │   ├── intermediate/
-│       │   └── marts/
-│       ├── seeds/
-│       │   └── company_tickers.csv
-│       └── tests/
+│       ├── models/staging/
+│       ├── models/intermediate/
+│       ├── models/marts/
+│       └── seeds/company_tickers.csv
 ├── snowflake/
 │   ├── setup.sql
-│   ├── load_raw.sql                    # intended stage-based loader (blocked)
-│   └── load_raw_python.py              # active Python loader workaround
-├── sigma/
+│   ├── load_raw.sql                  ← stage-based loader (pending whitelist)
+│   └── load_raw_python.py            ← active Python loader
+├── sigma/                            ← placeholder (Sigma access blocked)
 └── docker-compose.yml
 ```
+
+---
+
+## Visualization: Why Evidence.dev
+
+Sigma (the original choice) requires a company email for free trials and admin rights to add connections — neither was available. Lightdash was considered but has the same email restriction.
+
+Evidence.dev was chosen because:
+- Code-first: dashboards are SQL + Markdown, consistent with the project's engineering approach
+- Free public URL via GitHub Pages — the LinkedIn post links directly to a live site
+- No account restrictions
+- Strong signal for a data engineering portfolio: most candidates use Tableau or Power BI
 
 ---
 

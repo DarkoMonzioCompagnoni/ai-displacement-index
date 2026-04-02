@@ -1,53 +1,91 @@
-# AI Usage Log
+# Dashboard Notes & Content Ideas
 
-This file documents every meaningful use of AI assistance in building the AI Displacement Index. The goal is transparency: what was asked, what was produced, and where human judgment shaped or corrected the output.
-
-**Tool used:** Claude (Anthropic) — claude.ai chat interface
-**Model:** Claude Sonnet 4.6
+Analytical observations, framing decisions, and narrative flags for the Evidence.dev dashboard and LinkedIn content. Updated as the project develops.
 
 ---
 
-## How AI was used in this project
+## Dashboard observations (confirmed)
 
-AI generated code, configuration, SQL, and documentation throughout this build. Outputs were validated through terminal results, dbt previews, row counts, and error messages — not line-by-line code review. Architectural decisions, analytical framing, and judgment calls at key decision points remained with the author.
+### 1. The BLS classification gap
+**Where:** Page 4 (Occupation Risk)
+**What:** The BLS 2018 SOC system has no standalone codes for "Data Analyst" or "Data Engineer". Both fall under `15-2051 Data Scientists`.
+**Why it matters:** The government agency tracking AI's labor market impact doesn't classify two of the most-discussed roles in that context.
+**Framing:** State plainly as a methodology note.
+**LinkedIn angle:** "I tried to pull BLS employment data for Data Analysts and Data Engineers. They don't exist as categories. Here's what that tells us."
 
-This is a deliberate working pattern, not a shortcut. A senior engineer using AI as an accelerator reviews design and validates outputs — the same way they would with a junior developer. The log below captures where that judgment was applied, where AI was wrong, and what corrections were made.
+### 2. The AI halo effect is descriptive, not causal
+**Where:** Page 3 (AI Halo Effect)
+**What:** Companies announcing AI investments while laying off workers often see short-term stock gains. Pattern visible, causation unproven.
+**Confounders:** Earnings cycles, macro conditions, sector rotation.
+**Framing:** Dashboard note: "This chart shows stock returns around layoff and AI announcement events. It is descriptive — not a causal claim."
 
----
+### 3. The two-phase layoff narrative
+**Where:** Page 1 (Layoff Tracker)
+**What:** 2022–2023 = post-pandemic over-hiring correction. 2024–2025 = AI-driven restructuring (SAP, Workday, Microsoft explicitly framing cuts this way).
+**Framing:** Annotate timeline with two labelled phases.
+**LinkedIn angle:** "Tech layoffs didn't stop in 2023. The reason just changed."
 
-## Log
+### 4. Developer trust in AI is falling even as usage rises
+**Where:** Page 2 (Developer Pulse)
+**What:** SO survey: usage up (62% → 84%, 2024→2025), favorable sentiment down (70%+ → 60%).
+**Framing:** Two lines on the same chart. The divergence is the story.
+**LinkedIn angle:** "More developers are using AI tools. Fewer trust them. Here's what the data says."
 
-| # | Date | Stage | What I asked AI to do | What it produced | Human correction / judgment applied |
-|---|---|---|---|---|---|
-| 001 | 2026-03-31 | Project scoping | Scan for capstone project inspiration combining AI job displacement, developer sentiment, and finance | Proposed "AI Displacement Index" with data sources, architecture, dbt layers, and Sigma dashboard tabs | Accepted direction. Narrowed to 4 dashboard tabs. Validated data sources independently. |
-| 002 | 2026-03-31 | Environment setup | Guide local environment setup on Windows | pyenv-win attempted first, then Conda | pyenv-win abandoned after 3 failed attempts. Conda adopted. Windows Credential Manager bug (0x80070057) required manual fix. |
-| 003 | 2026-03-31 | Documentation | Draft README.md and ARCHITECTURE.md | Two-file structure: accessible README + technical ARCHITECTURE | Two-layer docs approach was my idea. Causality caveat in AI halo analysis added based on our design discussion. |
-| 004 | 2026-03-31 | Infrastructure | Azure Blob Storage setup | Portal walkthrough | Azure rejected Revolut cards 3 times. I decided to switch to Cloudflare R2. |
-| 005 | 2026-03-31 | Infrastructure | Cloudflare R2 setup | Bucket walkthrough, boto3 test script | Worked first attempt. |
-| 006 | 2026-03-31 | Infrastructure | Snowflake RBAC design | `setup.sql` with roles, users, warehouses, schemas, privileges | I asked for a dedicated LOADER role — not in AI's initial draft. Warehouses split per role at my request. |
-| 007 | 2026-03-31 | Infrastructure | Snowflake Python connection test | `test_snowflake_connection.py` | First run returned wrong user/role — `.env` variables not read correctly. Fixed manually. |
-| 008 | 2026-03-31 | Ingestion | Layoffs.fyi ingestion script | Script with hardcoded row/column counts | I caught the hardcoded values. AI had not flagged this proactively. |
-| 009 | 2026-03-31 | Ingestion | Stack Overflow survey download | Direct CDN URL for 2024 zip | URL returned 404 — link had rotated. Switched to Kaggle. AI failure. |
-| 010 | 2026-03-31 | Ingestion | Stock price ingestion | `ingest_stock_prices.py` + `company_tickers.csv` | SQ (Block) failed yfinance. I noticed company_tickers.csv should be committed as config, not gitignored. |
-| 011 | 2026-03-31 | Ingestion | BLS occupational employment data | Three approaches — all blocked | AI series IDs built from memory without verification. I asked why Data Analysts and Data Engineers were absent — confirmed BLS has no standalone SOC codes. I recognised this as a dashboard narrative opportunity. |
-| 012 | 2026-04-01 | Ingestion | AI Occupational Exposure dataset | `ingest_ai_exposure.py` | Missing `openpyxl` dependency. I noticed AIOE top results were counterintuitive and worth surfacing in dashboard. |
-| 013 | 2026-04-01 | Loading | Snowflake external stage for R2 | `load_raw.sql` with S3-compatible stage | Two syntax errors fixed iteratively. Final blocker: endpoint whitelisting required. I decided to proceed with Python loader rather than wait for support. |
-| 014 | 2026-04-01 | Loading | Python direct loader | `load_raw_python.py` | Missing `snowflake-connector-python[pandas]` dependency. |
-| 015 | 2026-04-01 | dbt | dbt project setup | `dbt init`, `profiles.yml`, `dbt_project.yml` | Password cleared during edit — fixed. `CREATE SCHEMA` privilege missing — identified and granted. Schema doubling (`STAGING_STAGING`) fixed by removing `+schema` overrides. |
-| 016 | 2026-04-01 | dbt | Staging models | Four staging models | `TRY_CAST` failed on FLOAT columns — fixed with `::` cast syntax. `USSTATE` column name differed from expected `US_STATE`. Validated each model with `dbt show`. |
-| 017 | 2026-04-01 | dbt | Intermediate models | Three intermediate models | `int_companies_enriched` failed — `stg_stock_prices` has no `COMPANY` column. Fixed by using `company_tickers.csv` as a dbt seed instead. |
-| 018 | 2026-04-01 | dbt | Mart models | Four mart models — one per dashboard tab | All passed on first run. Validated with `dbt show`. Full `dbt build` successful. |
-
----
-
-## Honest assessment
-
-**AI was most useful for:** boilerplate code generation, debugging error messages, identifying root causes of permission and syntax errors, drafting documentation quickly, and surfacing data sources I hadn't considered.
-
-**AI was least reliable for:** verifying external API formats from memory (BLS series IDs), predicting tool edge cases (pyenv-win, Snowflake stage whitelisting), and maintaining awareness of what was committed vs. pending.
-
-**Human judgment mattered most for:** the analytical narrative (BLS gap, AIOE counterintuitive results, AI halo causality framing), architectural decisions (LOADER role, separate warehouses), catching outputs that looked plausible but were wrong (hardcoded counts, wrong column names), and deciding when to pivot vs. persist on a blocker.
+### 5. The AIOE top results are counterintuitive
+**Where:** Page 4 (Occupation Risk)
+**What:** Most AI-exposed: Genetic Counselors (1.53), Financial Examiners (1.53), Actuaries (1.52). Least exposed: Dancers (-2.67), Fitness Trainers (-2.11).
+**Why it matters:** Challenges the narrative that AI primarily threatens tech workers.
+**Framing:** "The occupations most exposed to AI are not who you'd expect."
+**LinkedIn angle:** "According to the Felten et al. AIOE index, Genetic Counselors are more exposed to AI than Software Developers. Here's why."
 
 ---
 
-*This log is updated after each working session.*
+## Engineering observations worth writing about
+
+### The BLS API failure
+Three approaches, all blocked. API series IDs undocumented and constructed from memory (AI error). Special requests URL gated behind browser. Flat file server blocks non-browser clients.
+**LinkedIn angle:** "I spent a day trying to programmatically pull BLS occupational data. Here's every way it blocked me — and what I used instead."
+
+### The Snowflake + Cloudflare R2 stage whitelisting issue
+R2 is documented as supported. Endpoint listed as "enabled by default." Free trial account still blocked. Required support ticket.
+**LinkedIn angle:** "The docs said it would work. It didn't. Here's the workaround."
+
+### Visualization tool selection — why not Sigma or Lightdash
+Sigma requires company email + admin rights for connections. Lightdash same restriction. Evidence.dev chosen: code-first, GitHub Pages deploy, no restrictions.
+**LinkedIn angle:** "I designed this project around Sigma. Then I couldn't access it. Here's why I chose Evidence.dev instead — and why it might actually be the better choice for a portfolio project."
+
+### The ai-usage.md transparency log
+Structured log of every AI interaction including failures.
+**LinkedIn angle:** "I used AI to build this project. Here's the honest log of every time it was wrong."
+
+---
+
+## Observations to investigate during dashboard build
+
+- Do companies that announce AI investments *before* layoffs outperform those that announce *after*?
+- Is developer sentiment toward AI lower in DevTypes with higher AIOE scores?
+- Which industries have the highest layoff rates relative to their AIOE exposure?
+- Software Developers have a moderate AIOE score — does the data support displacement or augmentation?
+- Does layoff intensity correlate with company funding stage?
+
+---
+
+## MVP vs. future development
+
+**MVP (publish first):**
+- All 4 Evidence.dev pages live on GitHub Pages
+- README, ARCHITECTURE, ai-usage.md polished
+- LinkedIn post: project overview + key findings
+
+**Phase 2 (content series):**
+- RLS implementation in Snowflake
+- Data masking on Stack Overflow respondent data
+- Dagster orchestration running on a schedule
+- Snowflake Intelligence exploration
+- Migrate to Sigma if access becomes available
+
+**Each phase 2 item = one LinkedIn post + repo update.**
+
+---
+
+*Add new observations here as they emerge during the dashboard build.*
