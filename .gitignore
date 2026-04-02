@@ -209,3 +209,12 @@ ingestion/scripts/data/
 !ingestion/scripts/data/company_tickers.csv
 
 snowflake/load_raw_substituted.sql
+
+# Dagster
+.dagster/
+logs/
+*.log
+
+.tmp_dagster_home*/
+
+dagster/.dagster_home/

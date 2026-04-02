@@ -1,0 +1,4 @@
+load_from:
+  - python_file:
+      relative_path: dagster/jobs/definitions.py
+      working_directory: dagster/jobs
