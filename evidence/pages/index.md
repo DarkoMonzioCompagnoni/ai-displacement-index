@@ -1,56 +1,27 @@
 ---
-title: Welcome to Evidence
+title: AI Displacement Index
 ---
 
-<Details title='How to edit this page'>
+# AI Displacement Index
 
-  This page can be found in your project at `/pages/index.md`. Make a change to the markdown file and save it to see the change take effect in your browser.
-</Details>
+Since ChatGPT's release in late 2022, companies have announced record AI investments while simultaneously cutting thousands of workers. This dashboard examines whether those two trends are connected — and what the data actually shows.
 
-```sql categories
-  select
-      category
-  from needful_things.orders
-  group by category
-```
+---
 
-<Dropdown data={categories} name=category value=category>
-    <DropdownOption value="%" valueLabel="All Categories"/>
-</Dropdown>
+## What this dashboard tracks
 
-<Dropdown name=year>
-    <DropdownOption value=% valueLabel="All Years"/>
-    <DropdownOption value=2019/>
-    <DropdownOption value=2020/>
-    <DropdownOption value=2021/>
-</Dropdown>
+<BigLink href="/layoff-tracker">📉 Layoff Tracker</BigLink>
+Tech layoffs by industry, quarter, and company stage — with the two-phase narrative (correction vs. restructuring).
 
-```sql orders_by_category
-  select 
-      date_trunc('month', order_datetime) as month,
-      sum(sales) as sales_usd,
-      category
-  from needful_things.orders
-  where category like '${inputs.category.value}'
-  and date_part('year', order_datetime) like '${inputs.year.value}'
-  group by all
-  order by sales_usd desc
-```
+<BigLink href="/developer-pulse">💬 Developer Pulse</BigLink>
+How developers feel about AI tools: usage is rising, trust is falling.
 
-<BarChart
-    data={orders_by_category}
-    title="Sales by Month, {inputs.category.label}"
-    x=month
-    y=sales_usd
-    series=category
-/>
+<BigLink href="/ai-halo-effect">📈 AI Halo Effect</BigLink>
+Stock returns around layoff announcements. Descriptive, not causal.
 
-## What's Next?
-- [Connect your data sources](settings)
-- Edit/add markdown files in the `pages` folder
-- Deploy your project with [Evidence Cloud](https://evidence.dev/cloud)
+<BigLink href="/occupation-risk">🎯 Occupation Risk</BigLink>
+Which occupations are most exposed to AI — and why the answer is not who you'd expect.
 
-## Get Support
-- Message us on [Slack](https://slack.evidence.dev/)
-- Read the [Docs](https://docs.evidence.dev/)
-- Open an issue on [Github](https://github.com/evidence-dev/evidence)
+---
+
+> Built by [Darko Monzio Compagnoni](https://www.linkedin.com/in/darko-monzio-compagnoni) · [GitHub](https://github.com/DarkoMonzioCompagnoni/ai-displacement-index) · [ai-usage.md](https://github.com/DarkoMonzioCompagnoni/ai-displacement-index/blob/main/ai-usage.md)

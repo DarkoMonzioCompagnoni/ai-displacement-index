@@ -8,3 +8,6 @@ static/data
 .vscode/settings.json
 .env
 .evidence/meta
+
+sources/snowflake/connection.yaml
+.profile.json
