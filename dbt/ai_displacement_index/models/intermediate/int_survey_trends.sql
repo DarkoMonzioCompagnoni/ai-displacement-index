@@ -24,7 +24,7 @@ cleaned as (
         ai_ethics_concern,
 
         -- Derived binary flags for aggregation
-        case when ai_select = 'I use AI tools as part of my development process'
+        case when ai_select = 'Yes'
             then 1 else 0
         end                             as uses_ai_tools,
 

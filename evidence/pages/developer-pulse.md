@@ -27,6 +27,7 @@ limit 15
     <Column id=pct_sees_ai_as_threat title="% Sees AI as Threat" contentType=colorscale colorScale=negative/>
     <Column id=pct_trusts_accuracy title="% Trusts Accuracy" contentType=colorscale colorScale=positive/>
 </DataTable>
+
 ```sql threat_by_experience
 select
     primary_dev_type as developer_role,
