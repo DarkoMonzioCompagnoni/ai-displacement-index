@@ -52,7 +52,7 @@ R2 is documented as supported. Endpoint listed as "enabled by default." Free tri
 
 ### Visualization tool selection — why not Sigma or Lightdash
 Sigma requires company email + admin rights for connections. Lightdash same restriction. Evidence.dev chosen: code-first, GitHub Pages deploy, no restrictions.
-**LinkedIn angle:** "I designed this project around Sigma. Then I couldn't access it. Here's why I chose Evidence.dev instead — and why it might actually be the better choice for a portfolio project."
+**LinkedIn angle:** "I designed this project around Sigma. Then I couldn't access it. I tried Evidence.dev. Then I switched to Streamlit. Here's how I made each decision — and what it taught me about tool selection under constraints."
 
 ### The ai-usage.md transparency log
 Structured log of every AI interaction including failures.
@@ -73,7 +73,7 @@ Structured log of every AI interaction including failures.
 ## MVP vs. future development
 
 **MVP (publish first):**
-- All 4 Evidence.dev pages live on GitHub Pages
+- All 4 Streamlit pages live on Streamlit Community Cloud
 - README, ARCHITECTURE, ai-usage.md polished
 - LinkedIn post: project overview + key findings
 

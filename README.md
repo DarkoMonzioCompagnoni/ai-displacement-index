@@ -1,6 +1,6 @@
 # AI Displacement Index
 
-**A public data pipeline tracking tech layoffs, developer sentiment on AI, and market reaction — built with Snowflake, dbt, Cloudflare R2, Dagster, and Evidence.dev.**
+**A public data pipeline tracking tech layoffs, developer sentiment on AI, and market reaction — built with Snowflake, dbt, Cloudflare R2, Dagster, and Streamlit.**
 
 ---
 

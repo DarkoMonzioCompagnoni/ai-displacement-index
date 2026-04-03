@@ -200,7 +200,14 @@ int_survey_trends.sql             -- SO survey pivoted by year and role
 | `mart_layoff_trends.sql` | Tab 1 | Layoffs by industry, quarter, company size |
 | `mart_developer_sentiment.sql` | Tab 2 | AI trust/usage trends by year and experience level |
 | `mart_ai_halo_effect.sql` | Tab 3 | Layoff announcement → 30-day stock return window |
+| `mart_layoff_price_windows.sql` | Tab 3 (detail) | Daily stock prices ±30 days around each layoff event |
 | `mart_occupation_risk.sql` | Tab 4 | AIOE exposure score vs. layoff prevalence by occupation |
+
+### New mart: `mart_layoff_price_windows`
+
+Built to support the AI Halo Effect page's stock trajectory visualization. Joins each layoff event to daily stock prices in a ±30 day window. `indexed_return` is calculated relative to the closing price on the announcement date (day 0 = 0%), making pre/post movement directly comparable across companies.
+
+One edge case: if the announcement falls on a weekend or holiday, `base_price` is NULL and the event is excluded from the visualization.
 
 ---
 
