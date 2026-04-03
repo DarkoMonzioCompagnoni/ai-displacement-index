@@ -1,1 +1,0 @@
-select * from MART_OCCUPATION_RISK

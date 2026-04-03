@@ -86,6 +86,24 @@ Structured log of every AI interaction including failures.
 
 **Each phase 2 item = one LinkedIn post + repo update.**
 
+## Engineering observations from dashboard build (Evidence.dev)
+
+### PowerShell UTF-8 encoding corruption
+Writing .md files via PowerShell here-strings corrupts multi-byte characters — emoji, em dashes, and SQL backtick fences are all at risk.
+**Rule:** Always write Evidence page files via Python with explicit `encoding='utf-8'`. Never use PowerShell for .md file creation in this project.
+
+### Evidence.dev cache invalidation
+After a dbt run rebuilds mart tables, Evidence does not automatically re-fetch. Must run `npm run sources` or delete `.evidence/template/.evidence-queries` and restart the dev server.
+**Rule:** After every `dbt run`, always follow with `npm run sources` before checking dashboard results.
+
+### Silent wrong answers are the hardest AI failure mode
+Claude generated a CASE WHEN condition matching a categorical string value it invented. The model ran successfully, loaded data, and displayed 0% — no error, no warning. Only domain knowledge caught it.
+**Rule:** After every dbt run that introduces a new computed flag or percentage, sanity-check the output with `SELECT DISTINCT` on the source column before trusting the result.
+
+### Metric definition is a human responsibility
+AI can suggest model structure and SQL patterns. It cannot know what values actually exist in a dataset it has never seen. All CASE WHEN logic, threshold choices, and metric definitions in this project were reviewed and corrected by Darko.
+**Framing:** Consistent with the ai-usage.md transparency principle — AI as accelerator, not decision-maker.
+
 ---
 
 *Add new observations here as they emerge during the dashboard build.*

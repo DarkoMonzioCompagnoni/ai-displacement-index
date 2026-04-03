@@ -1,1 +1,0 @@
-select * from MART_DEVELOPER_SENTIMENT

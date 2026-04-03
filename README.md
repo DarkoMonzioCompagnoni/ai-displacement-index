@@ -34,7 +34,7 @@ I also wanted to be transparent about how I used AI in building it. You'll find 
 | Cloud Storage | Cloudflare R2 (raw landing zone) |
 | Transformation | dbt Core + Snowflake adapter |
 | Orchestration | Dagster |
-| Visualization | Evidence.dev (deployed to GitHub Pages) |
+| Visualization | Streamlit (deployed to Streamlit Community Cloud) |
 | Containerization | Docker |
 | Language | Python 3.11, SQL, Markdown |
 
@@ -63,8 +63,8 @@ For a detailed breakdown of the pipeline design, schema structure, and dbt model
 [Sources]                [Storage]            [Warehouse]     [Transform]    [Serve]
 
 Yahoo Finance───┐
-Layoffs CSV  ───┤──► Cloudflare R2 ────────► Snowflake ──────► dbt ─────────► Evidence.dev
-SO Survey CSV───┤    (raw zone,               (staging +        (marts)         (GitHub Pages)
+Layoffs CSV  ───┤──► Cloudflare R2 ────────► Snowflake ──────► dbt ─────────► Streamlit
+SO Survey CSV───┤    (raw zone,               (staging +        (marts)         (Streamlit Community Cloud)
 AIOE scores  ───┘     S3-compatible)           warehouse)
 ```
 
@@ -104,7 +104,7 @@ RAW schema (Snowflake)
 | Ingestion scripts | ✅ Complete |
 | dbt models | ✅ Complete |
 | Dagster orchestration | ✅ Complete |
-| Evidence.dev dashboard | 🔄 In progress |
+| Streamlit dashboard | 🔄 In progress |
 | Docker + repo polish | ⏳ Pending |
 
 ---
@@ -121,7 +121,7 @@ ai-displacement-index/
 ├── .env.example
 ├── .gitignore
 ├── workspace.yaml                    ← Dagster entry point
-├── evidence/                         ← Evidence.dev dashboard
+├── streamlit/                         ← Streamlit dashboard
 ├── ingestion/
 │   └── scripts/
 │       ├── data/
@@ -154,15 +154,15 @@ ai-displacement-index/
 
 ---
 
-## Visualization: Why Evidence.dev
+## Visualization: Why Streamlit
 
-Sigma (the original choice) requires a company email for free trials and admin rights to add connections — neither was available. Lightdash was considered but has the same email restriction.
+Sigma (the original choice) requires a company email for free trials and admin rights to add connections. Lightdash has the same restriction. Evidence.dev was trialled but discarded — the markdown authoring workflow and cache invalidation after every dbt run created unnecessary friction.
 
-Evidence.dev was chosen because:
-- Code-first: dashboards are SQL + Markdown, consistent with the project's engineering approach
-- Free public URL via GitHub Pages — the LinkedIn post links directly to a live site
-- No account restrictions
-- Strong signal for a data engineering portfolio: most candidates use Tableau or Power BI
+Streamlit was chosen because:
+- Pure Python — consistent with the project's existing stack
+- Queries Snowflake directly on every load — no cache layer
+- Free public URL via Streamlit Community Cloud, deployed from GitHub
+- Strong portfolio signal for a data engineering role
 
 ---
 
